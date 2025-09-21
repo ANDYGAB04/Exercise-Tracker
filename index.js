@@ -21,7 +21,7 @@ const UserSchema = new mongoose.Schema({
   count: Number,
   log: [{
     description: String,
-    duratation: Number,
+    duration: Number,
     date: Date
   }]
 });
@@ -36,6 +36,52 @@ app.post('/api/users', async (req, res) => {
   res.json({ username: username, _id: _id });
 
 });
+
+app.get('/api/users', async (req, res) => {
+  const users = await User.find({}, 'username _id');
+  res.json(users);
+});
+app.post('/api/users/:_id/exercises', async (req, res) => {
+  const _id = req.params._id;
+  const { description, duration, date } = req.body;
+  const user = await User.findById(_id);
+  if (!user) {
+    return res.status(400).json({ error: 'User not found' });
+  }
+  user.count += 1;
+  const exercise = {
+    description: description,
+    duration: parseInt(duration),
+    date: date ? new Date(date) : new Date()
+  };
+  user.log.push(exercise);
+  await user.save();
+  res.json({ _id: _id, username: user.username, date: exercise.date.toDateString(), duration: exercise.duration, description: exercise.description });
+});
+
+app.get('/api/users/:_id/logs', async (req, res) => {
+  const _id = req.params._id;
+  const { from, to, limit } = req.query;
+  const user = await User.findById(_id);
+  if (!user) {
+    return res.status(400).json({ error: 'User not found' });
+  }
+  let log = user.log;
+  if (from) {
+    const fromDate = new Date(from);
+    log = log.filter(ex => ex.date >= fromDate);
+  }
+  if (to) {
+    const toDate = new Date(to);
+    log = log.filter(ex => ex.date <= toDate);
+  }
+  if (limit) {
+    log = log.slice(0, parseInt(limit));
+
+  }
+  res.json({ _id: _id, username: user.username, count: log.length, log: log.map(ex => ({ description: ex.description, duration: ex.duration, date: ex.date.toDateString() })) });
+});
+
 
 
 
